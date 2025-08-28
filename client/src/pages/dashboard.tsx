@@ -31,7 +31,7 @@ const BRAND = {
 };
 
 // Inline SVG fallback for ACME logo to avoid external loading issues
-const AcmeMark = ({ className = "h-8" }) => (
+const AcmeMark = ({ className = "h-8" }: { className?: string }) => (
   <svg viewBox="0 0 360 120" className={className} aria-label="ACME Corp logo" role="img">
     <defs>
       <linearGradient id="acmeGrad" x1="0" y1="0" x2="0" y2="1">
@@ -49,16 +49,23 @@ const AcmeMark = ({ className = "h-8" }) => (
   </svg>
 );
 
-const withAlpha = (hex, alpha) => {
+const withAlpha = (hex: string, alpha: number): string => {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-function KpiCard({ icon: Icon, label, value, sub }) {
+interface KpiCardProps {
+  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  label: string;
+  value: string;
+  sub?: string;
+}
+
+function KpiCard({ icon: Icon, label, value, sub }: KpiCardProps) {
   return (
-    <div className="rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 p-5 shadow-sm backdrop-blur">
+    <div className="rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 p-5 shadow-sm backdrop-blur" data-testid={`kpi-card-${label.toLowerCase().replace(/\s+/g, '-')}`}>
       <div className="flex items-center gap-3">
         <div
           className="p-2 rounded-xl border"
@@ -74,10 +81,10 @@ function KpiCard({ icon: Icon, label, value, sub }) {
           )}
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{label}</p>
-          <p className="text-2xl font-semibold leading-tight">{value}</p>
+          <p className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400" data-testid={`text-label-${label.toLowerCase().replace(/\s+/g, '-')}`}>{label}</p>
+          <p className="text-2xl font-semibold leading-tight" data-testid={`text-value-${label.toLowerCase().replace(/\s+/g, '-')}`}>{value}</p>
           {sub && (
-            <p className="text-xs mt-1" style={{ color: BRAND.green }}>
+            <p className="text-xs mt-1" style={{ color: BRAND.green }} data-testid={`text-sub-${label.toLowerCase().replace(/\s+/g, '-')}`}>
               {sub}
             </p>
           )}
@@ -103,11 +110,11 @@ const barData = [
 ];
 
 // ROI Calculator helpers (pure functions)
-function sumValues(obj) {
-  return Object.values(obj || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+function sumValues(obj: Record<string, number>): number {
+  return Object.values(obj || {}).reduce((a: number, b: number) => a + (Number(b) || 0), 0);
 }
 
-function computeNPV(monthlySavings, capex, rate = 0.12, months = 36) {
+function computeNPV(monthlySavings: number, capex: number, rate: number = 0.12, months: number = 36): number {
   let npv = -Number(capex || 0);
   const r = Number(rate);
   for (let t = 1; t <= months; t++) {
@@ -116,7 +123,21 @@ function computeNPV(monthlySavings, capex, rate = 0.12, months = 36) {
   return npv;
 }
 
-function computeRoiTotals({ baselineMonthly, afterMonthly, capex, rate = 0.12 }) {
+interface RoiCalculatorInput {
+  baselineMonthly: number;
+  afterMonthly: number;
+  capex: number;
+  rate?: number;
+}
+
+interface RoiCalculatorResult {
+  monthlySavings: number;
+  annualSavings: number;
+  paybackMonths: number;
+  npv3: number;
+}
+
+function computeRoiTotals({ baselineMonthly, afterMonthly, capex, rate = 0.12 }: RoiCalculatorInput): RoiCalculatorResult {
   const monthlySavings = Math.max(0, Number(baselineMonthly) - Number(afterMonthly));
   const paybackMonths = monthlySavings > 0 ? Number(capex) / monthlySavings : Infinity;
   const annualSavings = monthlySavings * 12;
@@ -125,10 +146,10 @@ function computeRoiTotals({ baselineMonthly, afterMonthly, capex, rate = 0.12 })
 }
 
 // Simple AI Chatbot helpers
-function generateBotReply(input) {
+function generateBotReply(input: string): string {
   const q = (input || "").trim().toLowerCase();
   if (!q) return "I didn't catch that. Could you type your question again?";
-  const has = (s) => q.includes(s);
+  const has = (s: string) => q.includes(s);
   if (has("hello") || has("hi") || has("hey") || has("good morning") || has("good afternoon") || has("good evening")) {
     return "Hi there! I can answer questions about uptime, recovery, ROI, and implementation timelines.";
   }
@@ -153,11 +174,72 @@ function generateBotReply(input) {
   return "Got it. I'll note that and can route you to a human if needed. Ask about ROI, uptime, recovery, pricing, or scheduling a call.";
 }
 
+function runTests() {
+  console.group("✨ Inline Tests");
+  console.assert(/^#?[0-9A-Fa-f]{6}$/.test(BRAND.blue), "BRAND.blue must be hex");
+  console.assert(/^#?[0-9A-Fa-f]{6}$/.test(BRAND.green), "BRAND.green must be hex");
+  console.assert(
+    Array.isArray(lineData) && lineData.length > 0 && "month" in lineData[0],
+    "lineData must be array of objects with a 'month' key"
+  );
+  console.assert(
+    ["throughput", "recovery", "cost"].every((k) => k in lineData[0]),
+    "lineData objects must include throughput, recovery, cost"
+  );
+  console.assert(
+    Array.isArray(barData) && barData.length >= 3,
+    "barData should include at least 3 series entries"
+  );
+  // Chatbot function tests
+  console.assert(
+    generateBotReply("hi").toLowerCase().includes("hi"),
+    "Greeting should acknowledge"
+  );
+  console.assert(
+    generateBotReply("ROI?").toLowerCase().includes("payback"),
+    "ROI message should mention payback"
+  );
+  console.assert(
+    generateBotReply("").length > 0,
+    "Empty input should yield a helpful prompt"
+  );
+  // Message shape test (sample)
+  const sampleMsg = { role: "user", from: "user", text: "hello" };
+  console.assert(
+    typeof sampleMsg.role === "string" && typeof sampleMsg.from === "string" && typeof sampleMsg.text === "string",
+    "Messages should include role, from, and text"
+  );
+  // ROI tests
+  const roiCase = computeRoiTotals({ baselineMonthly: 10000, afterMonthly: 6000, capex: 20000, rate: 0.12 });
+  console.assert(roiCase.monthlySavings === 4000, "ROI: monthly savings should be 4000");
+  console.assert(Math.abs(roiCase.paybackMonths - 5) < 1e-9, "ROI: payback should be 5 months");
+  const npvSimple = computeNPV(4000, 20000, 0.12, 36);
+  console.assert(typeof npvSimple === "number" && npvSimple > 0, "ROI: NPV should be positive in this scenario");
+  // Extra tests to harden edge cases
+  console.assert(sumValues({ a: 1, b: 2, c: 3 }) === 6, "sumValues should sum numbers");
+  const zeroCase = computeRoiTotals({ baselineMonthly: 5000, afterMonthly: 5000, capex: 10000, rate: 0.12 });
+  console.assert(!Number.isFinite(zeroCase.paybackMonths), "ROI: payback should be Infinity when no savings");
+  console.groupEnd();
+}
+
+interface ChatMessage {
+  role: "bot" | "user";
+  from: "bot" | "user";
+  text: string;
+}
+
+interface TeamMember {
+  name: string;
+  title: string;
+  img: string;
+  link: string;
+}
+
 export default function TrucentPartnerPrototypeDemo() {
   const [dark, setDark] = useState(false);
 
   // Single source of truth for chat messages
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "bot", from: "bot", text: "Welcome! I'm the Trucent assistant. Ask me about ROI, uptime, recovery, or schedule a call." },
   ]);
 
@@ -195,6 +277,10 @@ export default function TrucentPartnerPrototypeDemo() {
     [baselineMonthly, afterMonthly, capex, rate]
   );
 
+  useEffect(() => {
+    runTests();
+  }, []);
+
   const chartStroke = useMemo(() => BRAND.blue, []);
   const positive = useMemo(() => BRAND.green, []);
 
@@ -216,7 +302,7 @@ export default function TrucentPartnerPrototypeDemo() {
     setChatInput("");
   };
 
-  const team = [
+  const team: TeamMember[] = [
     {
       name: "Thomas Czartoski",
       title: "Founder & CEO",
@@ -237,7 +323,7 @@ export default function TrucentPartnerPrototypeDemo() {
     },
   ];
 
-  const Avatar = ({ person, size = 64 }) => (
+  const Avatar = ({ person, size = 64 }: { person: TeamMember; size?: number }) => (
     <a
       href={person.link || "#"}
       className="group block focus:outline-none"
@@ -525,30 +611,30 @@ export default function TrucentPartnerPrototypeDemo() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <label className="text-sm">CapEx ($)
                             <input type="number" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={capex}
-                              onChange={(e)=> setCapex(Number(e.target.value))} data-testid="input-capex"/>
+                              onChange={(e) => setCapex(Number(e.target.value))} data-testid="input-capex" />
                           </label>
                           <label className="text-sm">Discount Rate (annual)
                             <input type="number" step="0.01" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={rate}
-                              onChange={(e)=> setRate(Number(e.target.value))} data-testid="input-rate"/>
+                              onChange={(e) => setRate(Number(e.target.value))} data-testid="input-rate" />
                           </label>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                           <div>
                             <h4 className="text-sm font-semibold mb-2">Baseline Monthly Costs</h4>
-                            {Object.entries(baselineCosts).map(([k,v])=> (
+                            {Object.entries(baselineCosts).map(([k, v]) => (
                               <label key={k} className="text-sm block mb-2 capitalize">{k}
                                 <input type="number" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={v}
-                                  onChange={(e)=> setBaselineCosts((prev)=> ({...prev, [k]: Number(e.target.value)}))} data-testid={`input-baseline-${k}`}/>
+                                  onChange={(e) => setBaselineCosts((prev) => ({ ...prev, [k]: Number(e.target.value) }))} data-testid={`input-baseline-${k}`} />
                               </label>
                             ))}
                           </div>
                           <div>
                             <h4 className="text-sm font-semibold mb-2">After Monthly Costs</h4>
-                            {Object.entries(afterCosts).map(([k,v])=> (
+                            {Object.entries(afterCosts).map(([k, v]) => (
                               <label key={k} className="text-sm block mb-2 capitalize">{k}
                                 <input type="number" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={v}
-                                  onChange={(e)=> setAfterCosts((prev)=> ({...prev, [k]: Number(e.target.value)}))} data-testid={`input-after-${k}`}/>
+                                  onChange={(e) => setAfterCosts((prev) => ({ ...prev, [k]: Number(e.target.value) }))} data-testid={`input-after-${k}`} />
                               </label>
                             ))}
                           </div>
@@ -557,21 +643,21 @@ export default function TrucentPartnerPrototypeDemo() {
 
                       {/* Summary */}
                       <div className="lg:col-span-1">
-                        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-white/70 dark:bg-zinc-900/70" data-testid="roi-summary">
+                        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-white/70 dark:bg-zinc-900/70">
                           <h4 className="text-sm font-semibold mb-3">Summary</h4>
                           <ul className="space-y-2 text-sm">
                             <li className="flex justify-between"><span>Baseline Monthly</span><span data-testid="text-baseline-monthly">${baselineMonthly.toLocaleString()}</span></li>
                             <li className="flex justify-between"><span>After Monthly</span><span data-testid="text-after-monthly">${afterMonthly.toLocaleString()}</span></li>
-                            <li className="flex justify-between"><span>Monthly Savings</span><span style={{color: BRAND.green}} data-testid="text-monthly-savings">${roi.monthlySavings.toLocaleString()}</span></li>
+                            <li className="flex justify-between"><span>Monthly Savings</span><span style={{ color: BRAND.green }} data-testid="text-monthly-savings">${roi.monthlySavings.toLocaleString()}</span></li>
                             <li className="flex justify-between"><span>Annual Savings</span><span data-testid="text-annual-savings">${roi.annualSavings.toLocaleString()}</span></li>
                             <li className="flex justify-between"><span>Payback</span><span data-testid="text-payback">{Number.isFinite(roi.paybackMonths) ? `${roi.paybackMonths.toFixed(1)} months` : '—'}</span></li>
-                            <li className="flex justify-between"><span>3-Year NPV</span><span className={roi.npv3>=0?"":"text-red-600"} data-testid="text-npv">${roi.npv3.toLocaleString(undefined,{maximumFractionDigits:0})}</span></li>
+                            <li className="flex justify-between"><span>3-Year NPV</span><span className={roi.npv3 >= 0 ? "" : "text-red-600"} data-testid="text-npv">${roi.npv3.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></li>
                           </ul>
                           <button
                             className="mt-4 w-full rounded-lg px-3 py-2 text-sm text-white"
                             style={{ backgroundColor: BRAND.blue }}
                             onClick={() => setRoiOpen(false)}
-                            data-testid="button-done-roi"
+                            data-testid="button-roi-done"
                           >Done</button>
                         </div>
                       </div>
@@ -625,7 +711,7 @@ export default function TrucentPartnerPrototypeDemo() {
             {/* Right: Team sidebar */}
             <aside className="lg:block">
               <div className="sticky top-6">
-                <div className="rounded-2xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 p-4 shadow-sm" data-testid="team-section">
+                <div className="rounded-2xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 p-4 shadow-sm" data-testid="team-sidebar">
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: BRAND.green }} />
                     Trucent Team
