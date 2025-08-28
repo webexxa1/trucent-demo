@@ -49,14 +49,15 @@ const AcmeMark = ({ className = "h-8" }) => (
   </svg>
 );
 
-const withAlpha = (hex, alpha) => {
+const withAlpha = (hex: string, alpha: number) => {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-function KpiCard({ icon: Icon, label, value, sub }) {
+function KpiCard({ icon: Icon, label, value, sub }: { icon?: React.ComponentType<any>; label: string; value: string; sub?: string }) {
+  // Wrap everything in a single parent to avoid adjacent JSX root issues
   return (
     <div className="rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 p-5 shadow-sm backdrop-blur">
       <div className="flex items-center gap-3">
@@ -102,12 +103,13 @@ const barData = [
   { name: "Line C", uptime: 97.5, savings: 20 },
 ];
 
+// ----------------------------------------------------------
 // ROI Calculator helpers (pure functions)
-function sumValues(obj) {
-  return Object.values(obj || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+// ----------------------------------------------------------
+function sumValues(obj: Record<string, any>) {
+  return Object.values(obj || {}).reduce((a: number, b: any) => a + (Number(b) || 0), 0);
 }
-
-function computeNPV(monthlySavings, capex, rate = 0.12, months = 36) {
+function computeNPV(monthlySavings: number, capex: number, rate = 0.12, months = 36) {
   let npv = -Number(capex || 0);
   const r = Number(rate);
   for (let t = 1; t <= months; t++) {
@@ -115,8 +117,7 @@ function computeNPV(monthlySavings, capex, rate = 0.12, months = 36) {
   }
   return npv;
 }
-
-function computeRoiTotals({ baselineMonthly, afterMonthly, capex, rate = 0.12 }) {
+function computeRoiTotals({ baselineMonthly, afterMonthly, capex, rate = 0.12 }: { baselineMonthly: number; afterMonthly: number; capex: number; rate?: number }) {
   const monthlySavings = Math.max(0, Number(baselineMonthly) - Number(afterMonthly));
   const paybackMonths = monthlySavings > 0 ? Number(capex) / monthlySavings : Infinity;
   const annualSavings = monthlySavings * 12;
@@ -124,11 +125,13 @@ function computeRoiTotals({ baselineMonthly, afterMonthly, capex, rate = 0.12 })
   return { monthlySavings, annualSavings, paybackMonths, npv3 };
 }
 
-// Simple AI Chatbot helpers
-function generateBotReply(input) {
+// ----------------------------------------------------------
+// Simple AI Chatbot helpers (pure function for easy testing)
+// ----------------------------------------------------------
+function generateBotReply(input: string) {
   const q = (input || "").trim().toLowerCase();
   if (!q) return "I didn't catch that. Could you type your question again?";
-  const has = (s) => q.includes(s);
+  const has = (s: string) => q.includes(s);
   if (has("hello") || has("hi") || has("hey") || has("good morning") || has("good afternoon") || has("good evening")) {
     return "Hi there! I can answer questions about uptime, recovery, ROI, and implementation timelines.";
   }
@@ -151,6 +154,54 @@ function generateBotReply(input) {
     return "Figures shown here come from demo data and representative customer outcomes; we'll use your historian data for a precise model.";
   }
   return "Got it. I'll note that and can route you to a human if needed. Ask about ROI, uptime, recovery, pricing, or scheduling a call.";
+}
+
+function runTests() {
+  console.group("✨ Inline Tests");
+  console.assert(/^#?[0-9A-Fa-f]{6}$/.test(BRAND.blue), "BRAND.blue must be hex");
+  console.assert(/^#?[0-9A-Fa-f]{6}$/.test(BRAND.green), "BRAND.green must be hex");
+  console.assert(
+    Array.isArray(lineData) && lineData.length > 0 && "month" in lineData[0],
+    "lineData must be array of objects with a 'month' key"
+  );
+  console.assert(
+    ["throughput", "recovery", "cost"].every((k) => k in lineData[0]),
+    "lineData objects must include throughput, recovery, cost"
+  );
+  console.assert(
+    Array.isArray(barData) && barData.length >= 3,
+    "barData should include at least 3 series entries"
+  );
+  // Chatbot function tests
+  console.assert(
+    generateBotReply("hi").toLowerCase().includes("hi"),
+    "Greeting should acknowledge"
+  );
+  console.assert(
+    generateBotReply("ROI?").toLowerCase().includes("payback"),
+    "ROI message should mention payback"
+  );
+  console.assert(
+    generateBotReply("").length > 0,
+    "Empty input should yield a helpful prompt"
+  );
+  // Message shape test (sample)
+  const sampleMsg = { role: "user", from: "user", text: "hello" };
+  console.assert(
+    typeof sampleMsg.role === "string" && typeof sampleMsg.from === "string" && typeof sampleMsg.text === "string",
+    "Messages should include role, from, and text"
+  );
+  // ROI tests
+  const roiCase = computeRoiTotals({ baselineMonthly: 10000, afterMonthly: 6000, capex: 20000, rate: 0.12 });
+  console.assert(roiCase.monthlySavings === 4000, "ROI: monthly savings should be 4000");
+  console.assert(Math.abs(roiCase.paybackMonths - 5) < 1e-9, "ROI: payback should be 5 months");
+  const npvSimple = computeNPV(4000, 20000, 0.12, 36);
+  console.assert(typeof npvSimple === "number" && npvSimple > 0, "ROI: NPV should be positive in this scenario");
+  // Extra tests to harden edge cases
+  console.assert(sumValues({ a: 1, b: 2, c: 3 }) === 6, "sumValues should sum numbers");
+  const zeroCase = computeRoiTotals({ baselineMonthly: 5000, afterMonthly: 5000, capex: 10000, rate: 0.12 });
+  console.assert(!Number.isFinite(zeroCase.paybackMonths), "ROI: payback should be Infinity when no savings");
+  console.groupEnd();
 }
 
 export default function TrucentPartnerPrototypeDemo() {
@@ -195,6 +246,10 @@ export default function TrucentPartnerPrototypeDemo() {
     [baselineMonthly, afterMonthly, capex, rate]
   );
 
+  useEffect(() => {
+    runTests();
+  }, []);
+
   const chartStroke = useMemo(() => BRAND.blue, []);
   const positive = useMemo(() => BRAND.green, []);
 
@@ -237,12 +292,11 @@ export default function TrucentPartnerPrototypeDemo() {
     },
   ];
 
-  const Avatar = ({ person, size = 64 }) => (
+  const Avatar = ({ person, size = 64 }: { person: any; size?: number }) => (
     <a
       href={person.link || "#"}
       className="group block focus:outline-none"
       title={`${person.name} – ${person.title || "Team"}`}
-      data-testid={`link-team-${person.name.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <div
         className="relative rounded-full border shadow-sm overflow-hidden"
@@ -254,7 +308,6 @@ export default function TrucentPartnerPrototypeDemo() {
             alt={person.name}
             className="w-full h-full object-cover"
             loading="lazy"
-            data-testid={`img-avatar-${person.name.toLowerCase().replace(/\s+/g, '-')}`}
           />
         ) : (
           <div
@@ -263,25 +316,25 @@ export default function TrucentPartnerPrototypeDemo() {
           >
             {person.name
               .split(" ")
-              .map((s) => s[0])
+              .map((s: string) => s[0])
               .join("")
               .slice(0, 3)}
           </div>
         )}
       </div>
       <div className="mt-2 text-center">
-        <p className="text-xs font-medium leading-tight group-hover:underline" data-testid={`text-name-${person.name.toLowerCase().replace(/\s+/g, '-')}`}>
+        <p className="text-xs font-medium leading-tight group-hover:underline">
           {person.name}
         </p>
         {person.title && (
-          <p className="text-[10px] text-zinc-500 dark:text-zinc-400" data-testid={`text-title-${person.name.toLowerCase().replace(/\s+/g, '-')}`}>{person.title}</p>
+          <p className="text-[10px] text-zinc-500 dark:text-zinc-400">{person.title}</p>
         )}
       </div>
     </a>
   );
 
   return (
-    <div className={"min-h-[85vh] w-full " + (dark ? "dark" : "")} data-testid="dashboard-container">
+    <div className={"min-h-[85vh] w-full " + (dark ? "dark" : "") }>
       <div className="bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-950 dark:to-zinc-900 text-zinc-900 dark:text-zinc-100">
         <div className="max-w-6xl mx-auto px-4 py-8">
 
@@ -292,8 +345,8 @@ export default function TrucentPartnerPrototypeDemo() {
             </div>
             <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
               <span>Powered by</span>
-              <a href="https://www.trucent.com" target="_blank" rel="noopener noreferrer" data-testid="link-trucent">
-                <img src="https://www.trucent.com/wp-content/uploads/2020/12/fluid-separation-logo-trucent-480x216.png" alt="Fluid Separation" className="h-6 object-contain" data-testid="img-trucent-logo" />
+              <a href="https://www.trucent.com" target="_blank" rel="noopener noreferrer">
+                <img src="https://www.trucent.com/wp-content/uploads/2020/12/fluid-separation-logo-trucent-480x216.png" alt="Fluid Separation" className="h-6 object-contain" />
               </a>
             </div>
           </div>
@@ -302,7 +355,7 @@ export default function TrucentPartnerPrototypeDemo() {
           <div className="fixed bottom-6 right-6 z-50">
             {/* Panel */}
             {chatOpen && (
-              <div className="w-[320px] sm:w-[360px] rounded-2xl shadow-xl border bg-white/95 dark:bg-zinc-900/95 border-zinc-200/70 dark:border-zinc-800 backdrop-blur overflow-hidden mb-3" data-testid="chat-widget-panel">
+              <div className="w-[320px] sm:w-[360px] rounded-2xl shadow-xl border bg-white/95 dark:bg-zinc-900/95 border-zinc-200/70 dark:border-zinc-800 backdrop-blur overflow-hidden mb-3">
                 <div className="px-4 py-3 flex items-center justify-between" style={{ background: withAlpha(BRAND.blue, 0.08) }}>
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4" style={{ color: BRAND.blue }} />
@@ -311,14 +364,13 @@ export default function TrucentPartnerPrototypeDemo() {
                   <button
                     className="text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     onClick={() => setChatOpen(false)}
-                    data-testid="button-close-chat"
                   >
                     Close
                   </button>
                 </div>
-                <div className="max-h-[45vh] overflow-y-auto p-3 space-y-2" data-testid="chat-messages">
+                <div className="max-h-[45vh] overflow-y-auto p-3 space-y-2">
                   {messages.map((m, i) => (
-                    <div key={i} className={m.role === "bot" ? "text-sm" : "text-sm text-right"} data-testid={`message-${i}`}>
+                    <div key={i} className={m.role === "bot" ? "text-sm" : "text-sm text-right"}>
                       <div
                         className={
                           (m.role === "bot"
@@ -342,7 +394,6 @@ export default function TrucentPartnerPrototypeDemo() {
                           setChatInput(p);
                           setTimeout(() => sendMessage(), 0);
                         }}
-                        data-testid={`button-quick-prompt-${p.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
                       >
                         {p}
                       </button>
@@ -362,13 +413,11 @@ export default function TrucentPartnerPrototypeDemo() {
                           sendMessage();
                         }
                       }}
-                      data-testid="input-chat-widget"
                     />
                     <button
                       className="px-3 py-2 rounded-xl text-sm text-white"
                       style={{ backgroundColor: BRAND.blue }}
                       onClick={sendMessage}
-                      data-testid="button-send-widget"
                     >
                       Send
                     </button>
@@ -381,7 +430,6 @@ export default function TrucentPartnerPrototypeDemo() {
               className="rounded-full shadow-lg px-4 py-3 text-sm font-medium border border-zinc-200 dark:border-zinc-700"
               style={{ backgroundColor: BRAND.blue, color: "white" }}
               onClick={() => setChatOpen((o) => !o)}
-              data-testid="button-toggle-chat"
             >
               {chatOpen ? "Hide Assistant" : "AI Chat"}
             </button>
@@ -390,11 +438,11 @@ export default function TrucentPartnerPrototypeDemo() {
           {/* Header */}
           <div className="flex items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2" data-testid="text-title">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
                 <Sparkles className="w-6 h-6" style={{ color: BRAND.blue }} />
                 Trucent Partner Prototype — Live Demo
               </h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1" data-testid="text-subtitle">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                 Brand colors active. No local Tailwind config required.
               </p>
             </div>
@@ -402,7 +450,6 @@ export default function TrucentPartnerPrototypeDemo() {
               className="rounded-full px-3 py-1.5 text-sm border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition"
               onClick={() => setDark((d) => !d)}
               aria-label="Toggle theme"
-              data-testid="button-theme-toggle"
             >
               {dark ? "Switch to Light" : "Switch to Dark"}
             </button>
@@ -413,7 +460,7 @@ export default function TrucentPartnerPrototypeDemo() {
             {/* Left: KPIs + Charts + CTA + Inline Chat */}
             <div>
               {/* KPI row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="kpi-cards">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <KpiCard icon={Droplets} label="Water Recovered" value="110,200 gal" sub="+8.4% MoM" />
                 <KpiCard icon={Gauge} label="System Uptime" value="97.8%" sub="+0.6% vs last quarter" />
                 <KpiCard icon={DollarSign} label="Monthly Savings" value="$42,300" sub="Target met" />
@@ -422,7 +469,7 @@ export default function TrucentPartnerPrototypeDemo() {
 
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 p-4 shadow-sm" data-testid="chart-performance">
+                <div className="rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-semibold flex items-center gap-2">
                       <LineChartIcon className="w-5 h-5" style={{ color: BRAND.blue }} />
@@ -453,7 +500,7 @@ export default function TrucentPartnerPrototypeDemo() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 p-4 shadow-sm" data-testid="chart-uptime">
+                <div className="rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-semibold flex items-center gap-2">
                       <BarChart4 className="w-5 h-5" style={{ color: BRAND.blue }} />
@@ -496,7 +543,6 @@ export default function TrucentPartnerPrototypeDemo() {
                         backgroundColor: BRAND.blue,
                         borderColor: withAlpha(BRAND.blue, 0.25),
                       }}
-                      data-testid="button-open-roi"
                     >
                       <Calculator className="w-4 h-4" />
                       Open ROI Calculator
@@ -508,7 +554,7 @@ export default function TrucentPartnerPrototypeDemo() {
 
               {/* ROI Modal */}
               {roiOpen && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center p-4" data-testid="roi-modal">
+                <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
                   <div className="absolute inset-0 bg-black/40" onClick={() => setRoiOpen(false)} />
                   <div className="relative z-10 w-full max-w-3xl rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
                     <div className="px-5 py-3 flex items-center justify-between" style={{ background: withAlpha(BRAND.blue, 0.08) }}>
@@ -516,63 +562,60 @@ export default function TrucentPartnerPrototypeDemo() {
                         <Calculator className="w-4 h-4" style={{ color: BRAND.blue }} />
                         <h3 className="text-sm font-semibold">ROI Calculator</h3>
                       </div>
-                      <button className="text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700" onClick={() => setRoiOpen(false)} data-testid="button-close-roi">Close</button>
+                      <button className="text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700" onClick={() => setRoiOpen(false)}>Close</button>
                     </div>
 
-                    <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                      {/* Inputs */}
-                      <div className="lg:col-span-2 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left: Inputs */}
+                        <div>
                           <label className="text-sm">CapEx ($)
                             <input type="number" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={capex}
-                              onChange={(e)=> setCapex(Number(e.target.value))} data-testid="input-capex"/>
+                              onChange={(e) => setCapex(Number(e.target.value))} />
                           </label>
-                          <label className="text-sm">Discount Rate (annual)
-                            <input type="number" step="0.01" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={rate}
-                              onChange={(e)=> setRate(Number(e.target.value))} data-testid="input-rate"/>
+                          <label className="text-sm mt-3 block">Discount Rate (%)
+                            <input type="number" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={rate * 100}
+                              onChange={(e) => setRate(Number(e.target.value) / 100)} />
                           </label>
+
+                          <h4 className="text-sm font-semibold mt-4 mb-2">Baseline Monthly Costs</h4>
+                          {Object.entries(baselineCosts).map(([k, v]) => (
+                            <label key={k} className="text-xs block mt-1">{k} ($)
+                              <input type="number" className="mt-1 w-full border rounded px-2 py-1 text-xs dark:bg-zinc-900 dark:border-zinc-700" value={v}
+                                onChange={(e) => setBaselineCosts(prev => ({ ...prev, [k]: Number(e.target.value) }))} />
+                            </label>
+                          ))}
+
+                          <h4 className="text-sm font-semibold mt-4 mb-2">After Implementation Costs</h4>
+                          {Object.entries(afterCosts).map(([k, v]) => (
+                            <label key={k} className="text-xs block mt-1">{k} ($)
+                              <input type="number" className="mt-1 w-full border rounded px-2 py-1 text-xs dark:bg-zinc-900 dark:border-zinc-700" value={v}
+                                onChange={(e) => setAfterCosts(prev => ({ ...prev, [k]: Number(e.target.value) }))} />
+                            </label>
+                          ))}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                          <div>
-                            <h4 className="text-sm font-semibold mb-2">Baseline Monthly Costs</h4>
-                            {Object.entries(baselineCosts).map(([k,v])=> (
-                              <label key={k} className="text-sm block mb-2 capitalize">{k}
-                                <input type="number" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={v}
-                                  onChange={(e)=> setBaselineCosts((prev)=> ({...prev, [k]: Number(e.target.value)}))} data-testid={`input-baseline-${k}`}/>
-                              </label>
-                            ))}
+                        {/* Right: Results */}
+                        <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4" style={{ background: withAlpha(BRAND.blue, 0.05) }}>
+                          <h4 className="text-sm font-semibold mb-3">Financial Analysis</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Monthly Savings</span>
+                              <span className="font-medium" style={{ color: BRAND.green }}>${roi.monthlySavings.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Annual Savings</span>
+                              <span className="font-medium" style={{ color: BRAND.green }}>${roi.annualSavings.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Payback Period</span>
+                              <span className="font-medium">{Number.isFinite(roi.paybackMonths) ? `${roi.paybackMonths.toFixed(1)} months` : "N/A"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>3-Year NPV</span>
+                              <span className={`font-medium ${roi.npv3 > 0 ? "" : "text-red-500"}`} style={roi.npv3 > 0 ? { color: BRAND.green } : {}}>${roi.npv3.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-sm font-semibold mb-2">After Monthly Costs</h4>
-                            {Object.entries(afterCosts).map(([k,v])=> (
-                              <label key={k} className="text-sm block mb-2 capitalize">{k}
-                                <input type="number" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:bg-zinc-900 dark:border-zinc-700" value={v}
-                                  onChange={(e)=> setAfterCosts((prev)=> ({...prev, [k]: Number(e.target.value)}))} data-testid={`input-after-${k}`}/>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Summary */}
-                      <div className="lg:col-span-1">
-                        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-white/70 dark:bg-zinc-900/70" data-testid="roi-summary">
-                          <h4 className="text-sm font-semibold mb-3">Summary</h4>
-                          <ul className="space-y-2 text-sm">
-                            <li className="flex justify-between"><span>Baseline Monthly</span><span data-testid="text-baseline-monthly">${baselineMonthly.toLocaleString()}</span></li>
-                            <li className="flex justify-between"><span>After Monthly</span><span data-testid="text-after-monthly">${afterMonthly.toLocaleString()}</span></li>
-                            <li className="flex justify-between"><span>Monthly Savings</span><span style={{color: BRAND.green}} data-testid="text-monthly-savings">${roi.monthlySavings.toLocaleString()}</span></li>
-                            <li className="flex justify-between"><span>Annual Savings</span><span data-testid="text-annual-savings">${roi.annualSavings.toLocaleString()}</span></li>
-                            <li className="flex justify-between"><span>Payback</span><span data-testid="text-payback">{Number.isFinite(roi.paybackMonths) ? `${roi.paybackMonths.toFixed(1)} months` : '—'}</span></li>
-                            <li className="flex justify-between"><span>3-Year NPV</span><span className={roi.npv3>=0?"":"text-red-600"} data-testid="text-npv">${roi.npv3.toLocaleString(undefined,{maximumFractionDigits:0})}</span></li>
-                          </ul>
-                          <button
-                            className="mt-4 w-full rounded-lg px-3 py-2 text-sm text-white"
-                            style={{ backgroundColor: BRAND.blue }}
-                            onClick={() => setRoiOpen(false)}
-                            data-testid="button-done-roi"
-                          >Done</button>
                         </div>
                       </div>
                     </div>
@@ -580,40 +623,47 @@ export default function TrucentPartnerPrototypeDemo() {
                 </div>
               )}
 
-              {/* Inline AI Chatbot */}
+              {/* Inline Chat Section */}
               <div className="mt-8">
-                <div className="rounded-2xl border border-zinc-200/60 dark:border-zinc-800 p-4 bg-white/70 dark:bg-zinc-900/70 shadow-sm" data-testid="inline-chat">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <div className="rounded-2xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 p-4 shadow-sm">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <Sparkles className="w-4 h-4" style={{ color: BRAND.blue }} />
-                    AI Chatbot
+                    Have questions? Chat with our AI
                   </h3>
-                  <div className="h-64 overflow-y-auto mb-3 border rounded-lg p-2 bg-white dark:bg-zinc-800" data-testid="inline-chat-messages">
+                  <div className="space-y-2 max-h-64 overflow-y-auto mb-3">
                     {messages.map((m, i) => (
-                      <div key={i} className={`my-1 text-sm ${m.role === "user" ? "text-right" : "text-left"}`} data-testid={`inline-message-${i}`}>
-                        <span
-                          className={`inline-block px-2 py-1 rounded-lg ${m.role === "user" ? "text-white" : "bg-zinc-200 dark:bg-zinc-700"}`}
-                          style={m.role === "user" ? { backgroundColor: BRAND.blue, color: "white" } : {}}
+                      <div key={i} className={m.role === "bot" ? "text-sm" : "text-sm text-right"}>
+                        <div
+                          className={
+                            (m.role === "bot"
+                              ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                              : "bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.06)]") +
+                            " inline-block px-3 py-2 rounded-2xl max-w-[85%]"
+                          }
+                          style={m.role === "user" ? { border: `1px solid ${withAlpha(BRAND.blue, 0.25)}` } : {}}
                         >
                           {m.text}
-                        </span>
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <input
-                      type="text"
-                      className="flex-1 rounded-lg border px-2 py-1 text-sm dark:bg-zinc-800 dark:border-zinc-700"
-                      placeholder="Type a message..."
+                      className="flex-1 text-sm px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none"
+                      placeholder="Ask about ROI, uptime, pricing…"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                      data-testid="input-inline-chat"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
                     />
                     <button
+                      className="px-3 py-2 rounded-xl text-sm text-white"
+                      style={{ backgroundColor: BRAND.blue }}
                       onClick={handleSend}
-                      className="px-3 py-1 rounded-lg text-sm"
-                      style={{ backgroundColor: BRAND.green, color: "white" }}
-                      data-testid="button-send-inline"
                     >
                       Send
                     </button>
@@ -625,7 +675,7 @@ export default function TrucentPartnerPrototypeDemo() {
             {/* Right: Team sidebar */}
             <aside className="lg:block">
               <div className="sticky top-6">
-                <div className="rounded-2xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 p-4 shadow-sm" data-testid="team-section">
+                <div className="rounded-2xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 p-4 shadow-sm">
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: BRAND.green }} />
                     Trucent Team
